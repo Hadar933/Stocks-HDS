@@ -32,11 +32,11 @@ def plot_graph(df,stock):
     plt.show()
 
 
-def show_result(stock, source='yahoo'):
+def main(stock, source='yahoo'):
     format = stock + '.csv'
     start, end = set_dates()
     all_data = read_data(format,stock,source,start,end)
     plot_graph(all_data,stock)
 
 
-show_result('AMZN')
+main('AMZN')
