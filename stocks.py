@@ -6,6 +6,8 @@ import pickle
 import requests
 import datetime as dt
 
+pd.plotting.register_matplotlib_converters()
+
 
 def set_dates():
     syear, smonth, sday = (
@@ -25,12 +27,12 @@ def read_data(csv_format, stock, source, start, end):
     return all_data
 
 
-def plot_graph(df,information):
+def plot_graph(df, information):
     name = information[0]
     ticker = information[1][0]
     info = information[1][1]
     df[['Open']].plot()
-    title = name+' ('+ticker+') -'+info
+    title = name + ' (' + ticker + ') -' + info
     plt.title(title)
     plt.ylabel('USD $')
     plt.xlabel('Date')
@@ -40,64 +42,80 @@ def plot_graph(df,information):
 
 def get_TA35():
     resp = requests.get('https://en.wikipedia.org/wiki/TA-35_Index')
-    soup = bs.BeautifulSoup(resp.text,features='lxml')
-    table = soup.find('table', {'class':'wikitable'})
+    soup = bs.BeautifulSoup(resp.text, features='lxml')
+    table = soup.find('table', {'class': 'wikitable'})
     tickers = []
     for row in table.findAll('tr')[2:]:
-        ticker = row.findAll('td')[2].text[6:-1]+".TA"
-        name = row.findAll('td')[1].text.replace(' Ltd','')\
-            .replace('.','').replace('.','').lower()[:-1]
+        ticker = row.findAll('td')[2].text[6:-1] + ".TA"
+        name = row.findAll('td')[1].text.replace(' Ltd', '') \
+                   .replace('.', '').replace('.', '').lower()[:-1]
         sector = row.findAll('td')[3].text[:-1]
-        tickers.append((name,ticker,sector))
-    with open('TA35tickers.pickle','wb') as f:
-        pickle.dump(tickers,f)
+        tickers.append((name, ticker, sector))
+    with open('TA35tickers.pickle', 'wb') as f:
+        pickle.dump(tickers, f)
     return tickers
 
-def scrape_summary_data():
-    pass
+
+def scrape_stock_data(ticker):
+    all_data = dict()
+    webpage = f"https://finance.yahoo.com/quote/{ticker}?p={ticker}"
+    resp = requests.get(webpage)
+    soup = bs.BeautifulSoup(resp.text, features='lxml')
+    stock_data = soup.find_all("table")
+    for table in stock_data:
+        mydata = table.findAll("span")
+        for i in range(0, len(mydata) - 1, 2):
+            kind = str(mydata[i]).split("\">")[1].split("</")[0]
+            value = str(mydata[i + 1]).split("\">")[1].split("</")[0]
+            all_data[kind] = value
+    for item in all_data:
+        print(f"{item} :{all_data[item]}")
+
+
+scrape_stock_data('AAPL')
+
 
 def get_sp500():
     resp = requests.get('https://en.wikipedia.org/wiki/List_of_S%26P_500_'
                         'companies')
-    soup = bs.BeautifulSoup(resp.text,features='lxml')
-    table = soup.find('table', {'class':'wikitable sortable'})
+    soup = bs.BeautifulSoup(resp.text, features='lxml')
+    table = soup.find('table', {'class': 'wikitable sortable'})
     tickers = {}
     for row in table.findAll('tr')[1:]:
         ticker = row.findAll('td')[0].text
-        name = row.findAll('td')[1].text.replace(' Inc','')\
-            .replace(',','').replace('.','').lower()
+        name = row.findAll('td')[1].text.replace(' Inc', '') \
+            .replace(',', '').replace('.', '').lower()
         sector = row.findAll('td')[4].text
-        tickers[name]=[ticker[:-1],sector]
-    with open('sp500tickers.pickle','wb') as f:
-        pickle.dump(tickers,f)
+        tickers[name] = [ticker[:-1], sector]
+    with open('sp500tickers.pickle', 'wb') as f:
+        pickle.dump(tickers, f)
     return tickers
+
 
 def main():
     source = 'yahoo'
     sp = get_sp500()
     stock_name = 'apple'
     # stock_name = input('Which stock to show?').lower()
+
     if stock_name in sp:
         symbol_sector = sp[stock_name]
     else:
-        symbol_sector = stock_name,None
+        symbol_sector = stock_name, None
     csv_format = stock_name + '.csv'
     # start, end = set_dates()
-    start = dt.datetime(2020,1,1)
-    end = dt.datetime(2020,3,1)
-    data_to_plot = read_data(csv_format,symbol_sector[0],source,start,end)
-    print(data_to_plot[1:'Open'])
+    start = dt.datetime(2020, 1, 1)
+    end = dt.datetime(2020, 3, 1)
+    data_to_plot = read_data(csv_format, symbol_sector[0], source, start, end)
+    plot_graph(data_to_plot, [stock_name, symbol_sector])
 
-    #plot_graph(data_to_plot,[stock_name,symbol_sector])
-
-
-#main()
+# main()
 
 # start = dt.datetime(2020,1,1)
 # end = dt.datetime(2020,3,1)
 # all_data =[]
 # names_lst = []
-# for item in get_TA35():
+# for item in get_TA35()[:10]:
 #     name = item[0]
 #     names_lst.append(name)
 #     ticker = item[1]
