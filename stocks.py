@@ -10,6 +10,10 @@ pd.plotting.register_matplotlib_converters()
 
 
 def set_dates():
+    """
+    asks for user input regarding start and end dates
+    :return: start,end dates as datatime library objects
+    """
     syear, smonth, sday = (
         input('provide starting year,month,day:').split(','))
     syear, smonth, sday = int(syear), int(smonth), int(sday)
@@ -21,6 +25,15 @@ def set_dates():
 
 
 def read_data(csv_format, stock, source, start, end):
+    """
+
+    :param csv_format:
+    :param stock:
+    :param source:
+    :param start:
+    :param end:
+    :return:
+    """
     all_data = web.DataReader(stock, source, start, end)
     all_data.to_csv(csv_format)
     all_data = pd.read_csv(csv_format, parse_dates=True, index_col=0)
@@ -28,6 +41,12 @@ def read_data(csv_format, stock, source, start, end):
 
 
 def plot_graph(df, information):
+    """
+
+    :param df:
+    :param information:
+    :return:
+    """
     name = information[0]
     ticker = information[1][0]
     info = information[1][1]
@@ -40,7 +59,32 @@ def plot_graph(df, information):
     plt.show()
 
 
+def get_sp500():
+    """
+
+    :return:
+    """
+    resp = requests.get('https://en.wikipedia.org/wiki/List_of_S%26P_500_'
+                        'companies')
+    soup = bs.BeautifulSoup(resp.text, features='lxml')
+    table = soup.find('table', {'class': 'wikitable sortable'})
+    tickers = []
+    for row in table.findAll('tr')[1:]:
+        ticker = row.findAll('td')[0].text
+        name = row.findAll('td')[1].text.replace(' Inc', '') \
+            .replace(',', '').replace('.', '').lower()
+        sector = row.findAll('td')[4].text
+        tickers.append([name,ticker[:-1], sector])
+    with open('sp500tickers.pickle', 'wb') as f:
+        pickle.dump(tickers, f)
+    return tickers
+
+
 def get_TA35():
+    """
+
+    :return:
+    """
     resp = requests.get('https://en.wikipedia.org/wiki/TA-35_Index')
     soup = bs.BeautifulSoup(resp.text, features='lxml')
     table = soup.find('table', {'class': 'wikitable'})
@@ -50,49 +94,54 @@ def get_TA35():
         name = row.findAll('td')[1].text.replace(' Ltd', '') \
                    .replace('.', '').replace('.', '').lower()[:-1]
         sector = row.findAll('td')[3].text[:-1]
-        tickers.append((name, ticker, sector))
+        tickers.append([name,ticker,sector])
     with open('TA35tickers.pickle', 'wb') as f:
         pickle.dump(tickers, f)
     return tickers
 
 
 def scrape_stock_data(ticker):
+    """
+
+    :param ticker:
+    :return:
+    """
     all_data = dict()
     webpage = f"https://finance.yahoo.com/quote/{ticker}?p={ticker}"
     resp = requests.get(webpage)
     soup = bs.BeautifulSoup(resp.text, features='lxml')
     stock_data = soup.find_all("table")
     for table in stock_data:
-        mydata = table.findAll("span")
-        for i in range(0, len(mydata) - 1, 2):
-            kind = str(mydata[i]).split("\">")[1].split("</")[0]
-            value = str(mydata[i + 1]).split("\">")[1].split("</")[0]
-            all_data[kind] = value
-    for item in all_data:
-        print(f"{item} :{all_data[item]}")
+        tds = table.findAll('td')
+        for i in range(1, len(tds), 2):
+            name = str(tds[i]).split('test=\"')[1].split("-value")[0]
+            try:
+                value = str(tds[i]).split('</')[0].split('>', 2)[2]
+            except IndexError:
+                value = str(tds[i]).split('</')[0].split('>')[1]
+            all_data[name] = value
+    return all_data
 
 
-scrape_stock_data('AAPL')
+def sort_according_to(lst,value):
+    tickers = [item[1] for item in lst]
+    if str(value).lower()=='tickers':
+        return tickers.sort()
 
 
-def get_sp500():
-    resp = requests.get('https://en.wikipedia.org/wiki/List_of_S%26P_500_'
-                        'companies')
-    soup = bs.BeautifulSoup(resp.text, features='lxml')
-    table = soup.find('table', {'class': 'wikitable sortable'})
-    tickers = {}
-    for row in table.findAll('tr')[1:]:
-        ticker = row.findAll('td')[0].text
-        name = row.findAll('td')[1].text.replace(' Inc', '') \
-            .replace(',', '').replace('.', '').lower()
-        sector = row.findAll('td')[4].text
-        tickers[name] = [ticker[:-1], sector]
-    with open('sp500tickers.pickle', 'wb') as f:
-        pickle.dump(tickers, f)
-    return tickers
-
+print(sort_according_to(get_sp500(),1))
+#
+# for item in get_sp500()[:10]:
+#     ticker = item[1]
+#     data = scrape_stock_data(ticker)
+#     print(ticker)
+#     print(data)
 
 def main():
+    """
+
+    :return:
+    """
     source = 'yahoo'
     sp = get_sp500()
     stock_name = 'apple'
